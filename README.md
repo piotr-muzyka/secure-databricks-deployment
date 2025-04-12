@@ -74,7 +74,7 @@ Databricks related resources and configuration as notebooks, jobs and pipeline d
 
 
 ## Secure a CI/CD pipeline deploying infrastructure to production
-Deployment of the solution is based on Terraform Infrastructure as code and Azure nativce CI/CD - Azure DevOps deployment pipeline.
+Deployment of the solution is based on Terraform Infrastructure as code and Azure native CI/CD - Azure DevOps deployment pipeline. Azure DevOps pipelines were chosen here as they offer better integration with Entra ID and are offer more granular control over RBAC capabilities. On top of that ADO offers native Azure Key Vault integration for secrets management which is crucial when interacting with secrets used for the deployment.
 
 ![Deployment Topology](assets/deployment-topology.png)
 *Diagram 2 - Deployment topology*
