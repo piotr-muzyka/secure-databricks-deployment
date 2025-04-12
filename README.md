@@ -85,7 +85,7 @@ Key considerations:
 - Azure DevOps pipeline shall be a multi-stage one, containing a manual verification step before the deployment to production environments to ensure applied changes are not going to affect system availability and are compliant (review process in place),
 - Resources deployed with Terraform should have tags clearly reflecting ownership and environment level,
 
-Exemplary ADO pipeline code enclosed in the repository.
+Exemplary ([ADO pipeline code](https://github.com/piotr-muzyka/secure-databricks-deployment/blob/develop/azure-pipelines.yaml)) enclosed in the repository.
 Exemplary Terraform code included in the repository. 
 Tested with terraform 1.5.7, azurerm v3.117.1
 
