@@ -11,7 +11,6 @@ The following repository contains Azure Databricks design document implementing 
   - [Data Encryption](#data-encryption)
   - [Monitoring](#monitoring)
   - [Disaster recovery](#disaster-recovery)
-  - 
 - [Secure a CI/CD Pipeline Deploying Infrastructure to production](#secure-a-cicd-pipeline-deploying-infrastructure-to-production)
 - [Threat Detection & Response](#threat-detection--response)
 - [Limitations](#limitations)
@@ -63,7 +62,7 @@ On the data level Unity Catalog's multi-catalog approach shall be leveraged, usi
 CI/CD pipelines enforce approvals and validation gates for promoting changes across environments, with production deployments requiring additional security reviews.
 
 ### Monitoring
-For monitoring purposes Databricks diagnostic logs shall be streamed to Azure Monitor. Network traffic logs are captured through NSG flow logs and Azure Firewall logs with 30-day retention for forensic purposes.Retention period shall be set to 90 days. In order to meet compliance a cold storage archiving can be implemented for longer periods.
+For monitoring purposes Databricks diagnostic logs shall be streamed to Azure Monitor. Network traffic logs are captured through NSG flow logs and Azure Firewall logs with 90-day retention for forensic purposes.Retention period shall be set to 90 days. In order to meet compliance a cold storage archiving can be implemented for longer periods.
 It is vital to build custom dashboards collection key operational metrics as job execution succes rates and speed, cluster performance (CPU and memory metrics).
 Alert based on metrics shall be configured with escalation paths to appropriate teams. Examples of alerts - cluster performance lowered due to underscaling, job execution success rate dropped below expected treshold. 
 
@@ -71,7 +70,6 @@ Alert based on metrics shall be configured with escalation paths to appropriate 
 A disaster recovery strategy shall be defined to ensure business continuity. Make sure that Recovery time objective is set taking into account criticality of data pipelines. Disaster recovery plan shall include failover procedures with predefined reponsibilities and communication protocols.
 
 Databricks related resources and configuration as notebooks, jobs and pipeline definitions shall be versioned using Databricks Repos or version control system in order to be able to reuse the code in case of recovery.
-
 
 ## Secure a CI/CD pipeline deploying infrastructure to production
 Deployment of the solution is based on Terraform Infrastructure as code and Azure native CI/CD - Azure DevOps deployment pipeline. Azure DevOps pipelines were chosen here as they offer better integration with Entra ID and are offer more granular control over RBAC capabilities. On top of that ADO offers native Azure Key Vault integration for secrets management which is crucial when interacting with secrets used for the deployment.
@@ -91,7 +89,7 @@ Exemplary ADO pipeline code enclosed in the repository.
 Exemplary Terraform code included in the repository. 
 Tested with terraform 1.5.7, azurerm v3.117.1
 
-## Threat detection
+## Threat detection & response
 For security auditing Azure Databricks Logs shall be used. They capture privileged activities, file access, workspace modifications, cluster resizing, and file-sharing activities enabling monitoring of workspace access and user actions. In terms of Threat detection it is vital to focus on file integrity, unusual user activity and changes around permissions. 
 Audit logs can be then streamed to Azure Sentinel for SIEM integration. For egress traffic monitoring Azure Firewall logs shall be used.
 
@@ -102,8 +100,15 @@ Example of use cases to implement for threat detection:
   - abnormal API call frequencies
 - File Integrity Monitoring
   - unauthorised file modifications
-- permission and configuration changes
+- Permission and configuration changes
   - privilege escalation attempt 
+
+Suggested response for the use cases mentioned above:
+- Unusual user activity:
+  - verify activity logs to confirm malicious activity and lock the account to contain the issue. Perform investigation on the malicious activity and make corrective decisions based on it (e.g. rework Entra ID configuration)
+
+- File integrity monitoring: 
+  - Isolate the affected resource from the network to prevent lateral movement. Review network configuration around the affected resources. 
 
 ## Limitations:
 -  It is not possible to replace an existing VNet in a workspace with another one, if it was necessary to create a new workspace, a new VNET must be created.
