@@ -9,39 +9,25 @@ The following repository contains Azure Databricks design document implementing 
   - [Access](#access)
   - [Secrets](#secrets)
   - [Data Encryption](#data-encryption)
-  - [Data Governance](#data-governance)
+  - [Monitoring](#monitoring)
+  - [Disaster recovery](#disaster-recovery)
+  - 
 - [Secure a CI/CD Pipeline Deploying Infrastructure to production](#secure-a-cicd-pipeline-deploying-infrastructure-to-production)
 - [Threat Detection & Response](#threat-detection--response)
 - [Limitations](#limitations)
 
 # Secure Azure Databricks Deployment
 
-
 ![Architecture diagram](assets/architecture-diagram.png)
 *Diagram 1 - Databricks architecture*
 
 ## Networking
-This section outlines the secure deployment of Azure Databricks workspaces  It emphasizes network isolation to prevent unauthorized access and restricts virtual machine access by disabling SSH and enforcing security baselines. Dynamic IP allowlists ensure workspace access is limited to corporate networks, while hub-spoke architecture prevents public IP assignments and exposes no cluster nodes to the internet.
+Databricks deployment shall follow hub-spoke network design which prevents public IP assignments exposing cluster nodes to the internet. Hub VNET centralizes shared azure services related to e.g. monitoring, firewall. Spoke VNET aggregate workload related resources, like e.g. Databricks ETL or DS clusters. Between hub and spoke VNETs there should be peering configured. Network used for Databricks data plane shall be isolated to prevent unauthorized access and restricts virtual machine access by disabling SSH and enforcing security baselines. Dynamic IP allowlists shall be used to ensure access to corporate networks is limited for Databricks workspace. NSG configurations for the private subnet allow only internal traffic from the control plane and VNet-injected resources, while public subnet NSGs enforce Databricks-specific port requirements (443 inbound from control plane). 
 
-Azure Databricks workspace should be deployed to private subnets without any inbound access to the network. Clusters will utilize a secure connectivity mechanism to communicate with the Azure Databricks infrastructure, without requiring public IP addresses for the nodes.
+Key considerations:
+- Implement hub-spoke network design, hub VNet handles central connectivity and security controls, spoke VNet contains the Databricks workspace with private connectivity,
+- Deployment of Databricks workspace in own virtual network (Virtual Network injection) serving here a role of spoke VNET with Azure Private Link which ensures that connections between users, compute resources and services provided by Azure remains private, doesn't require exposing traffic to the public internet,
 
-Design considerations:
-- Deployment in own virtual network (bring your own network)
-- Implementing network isolation is crucial to prevent unauthorized access.
-- Restrict virtual machine access – Prevent SSH access and use only approved images scanned for vulnerabilities.
-- Use Dynamic IP access lists – Allow admin access to workspaces exclusively from corporate networks.
-- Leverage VNet injection – Securely connect to other Azure services, on-premises data, and network appliances.
-- Adopt Secure Cluster Connectivity and hub/spoke architecture – Prevents exposing cluster nodes to the internet and restricts public IP assignments.
-- Implement Azure Private Link – Encrypts traffic between users, notebooks, and compute clusters, keeping it off the public internet.
-
-
-https://community.databricks.com/t5/administration-architecture/vnet-injection-container-and-container-subnet/td-p/81887
-Public Subnet (host): The public subnet is typically used for resources that need to communicate with the internet or other Azure services. In Azure Databricks, this subnet is used for driver nodes of the clusters that require outbound internet access for various reasons, such as downloading Maven packages.
-
-Private Subnet (container): The private subnet, on the other hand, is used for resources that do not need direct internet access. In Azure Databricks, this subnet is used for worker nodes of the clusters. They communicate with the driver nodes and other Azure services like Azure Blob storage or Azure Data Lake Storage, without needing a direct internet connection.
-
-Notes: 
-- Azure Databricks requires two IP for each cluster node: one IP address for the host in the host subnet and one IP address for the container in the container subnet.
 
 ## Access
 Access management shall leverage Microsoft Entra ID which allows to setup single sign-on and credential passthrough. This approach eliminates the need to use service principals for access. On top of that use of Unity Catalog helps to centralize governance across workspaces. It also allows fine-grained access controls, data lineage tracking. In case necessary it also supports multi-cloud scenarios. Workspaces, compute resources, and data are not allowed for public access.
@@ -50,27 +36,13 @@ Key design considerations:
 - Microsoft Entra ID for credential passthrough,
 - Setup of SSO with Microsoft Entra ID and Conditional Access policies for enhanced security.
 - use Azure Active Directory (AAD) tokens to utilize the non-UI capabilities of your Azure Databricks workspace
-
-- Isolate workspaces, compute, and data from public access – Restrict access to authorized personnel only.
 - Least Privilege Access: Use Unity Catalog for fine-grained access control to data assets.
-Unity catalog:
-- helps with the user management, done on the account level
-- in contrary to hive metastore, unity catalog has following benefits: 
-    - Data catalog
-    - centralized governance across workspaces
-    - mult-cloud support
-    - automatic data lineage support
-    - enhanced security with fine-grained access 
-
-Unity Catalog policies to demonstrate how fine-grained permissions can be implemented effectively.
 
 ## Secrets
-Azure Key Vault shall be used for Secrets management. 
-Environment-specific configurations shall be stored securely in Delta Lake. 
-Storage shall be encrypted, more details can be found in section #Encryption.
+Azure Key Vault shall be used for secrets management. It shall store secrets used in the deployment process e.g. ARM client credentials used by the pipeline, API keys required for integration with external services, certificates and storage account encryption keys.
 
 ## Data encryption
-Bring Your Own Key shall be implemented with customer managed keys used for encryption at rest of following components:
+Bring Your Own Key shall be implemented with customer managed keys used for encryption at rest for following components:
 - Notebooks and workspace metadata
 - DBFS root storage
 - managed disks
@@ -82,15 +54,27 @@ Encryption keys will be rotated periodically to mitigate risks associated with k
 Note: Key rotation can be automated using Azure Key Vault auto-rotation option. 
 Requirements to enable this feature is to use RSA-HSM keys (2048/3072/4096-bit). Key Vault shall also have Key Vault Crypto Officer role for rotation.
 
+### Environment isolation
+In order to ensure that there is a clear separation between environment levels as Development, Testing and Production each environment shall utilize separate Azure Databricks workspaces with dedicated VNets, preventing network-level access between environments. 
 
-## Data Governance
-This section highlights the importance of enforcing data governance policies such as data classification, retention policies, and audit trails. Unity Catalog plays a key role in managing governance across workspaces while supporting fine-grained permissions and automatic data lineage tracking.
+Production environments shall implement strict access controls through Conditional Access policies as e.g. multi-factor authentication in Microsoft Entra ID and restricting access to managed devices. 
 
-Key considerations:
-- 
+On the data level Unity Catalog's multi-catalog approach shall be leveraged, using environment-specific catalogs with separate storage locations to ensure data separation. 
+CI/CD pipelines enforce approvals and validation gates for promoting changes across environments, with production deployments requiring additional security reviews.
+
+### Monitoring
+For monitoring purposes Databricks diagnostic logs shall be streamed to Azure Monitor. Network traffic logs are captured through NSG flow logs and Azure Firewall logs with 30-day retention for forensic purposes.Retention period shall be set to 90 days. In order to meet compliance a cold storage archiving can be implemented for longer periods.
+It is vital to build custom dashboards collection key operational metrics as job execution succes rates and speed, cluster performance (CPU and memory metrics).
+Alert based on metrics shall be configured with escalation paths to appropriate teams. Examples of alerts - cluster performance lowered due to underscaling, job execution success rate dropped below expected treshold. 
+
+### Disaster recovery
+A disaster recovery strategy shall be defined to ensure business continuity. Make sure that Recovery time objective is set taking into account criticality of data pipelines. Disaster recovery plan shall include failover procedures with predefined reponsibilities and communication protocols.
+
+Databricks related resources and configuration as notebooks, jobs and pipeline definitions shall be versioned using Databricks Repos or version control system in order to be able to reuse the code in case of recovery.
+
 
 ## Secure a CI/CD pipeline deploying infrastructure to production
-Deployment of the solution is based on Terraform Infrastructure as code and Azure natvice CI/CD - Azure DevOps deployment pipeline.
+Deployment of the solution is based on Terraform Infrastructure as code and Azure nativce CI/CD - Azure DevOps deployment pipeline.
 
 ![Deployment Topology](assets/deployment-topology.png)
 *Diagram 2 - Deployment topology*
@@ -108,17 +92,10 @@ Exemplary Terraform code included in the repository.
 Tested with terraform 1.5.7, azurerm v3.117.1
 
 ## Threat detection
-Azure Datab ricks Diagnostic Logs capture privileged activities, file access, workspace modifications, cluster resizing, and file-sharing activities for security auditing. Logs enable monitoring of workspace access and user actions to ensure transparency in platform activity.
+For security auditing Azure Databricks Logs shall be used. They capture privileged activities, file access, workspace modifications, cluster resizing, and file-sharing activities enabling monitoring of workspace access and user actions. In terms of Threat detection it is vital to focus on file integrity, unusual user activity and changes around permissions. 
+Audit logs can be then streamed to Azure Sentinel for SIEM integration. For egress traffic monitoring Azure Firewall logs shall be used.
 
-Azure Databricks platform activity covering who’s, what, when actions shall be implemented by enabling Azure Databricks Diagnostic Logs.
-
-This solution allows to:
-– Captures privileged activities, file access, and workspace modifications for security auditing
-– Monitor and audit workspace access, cluster resizing, and file-sharing activities.
-
-Azure Databricks logs shall be monitored for file integrity, any unusual user activity and changes around permissions. Threat detection involves monitoring Azure Databricks logs for unusual user activity, file integrity issues, and permission changes. Audit logs are streamed to Azure Sentinel for SIEM integration, and egress traffic is inspected using Azure Firewall or Network Virtual Appliances.
-
-Exemplary use cases to monitor:
+Example of use cases to implement for threat detection:
 - Unusual user activity:
   - failed login attempts
   - impossible travel (switches between geo locations in short time)
@@ -128,19 +105,7 @@ Exemplary use cases to monitor:
 - permission and configuration changes
   - privilege escalation attempt 
 
-Additional considerations:
--  SIEM Integration: Stream audit logs to Azure Sentinel.
-- Use Azure Firewall/NVA to inspect egress traffic.
-
 ## Limitations:
--  It is not possible to replace an existing VNet in a workspace with another one, if it was necessary a new workspace, a new VNET must be created.
-- It is also not possible to add SCC to the workspace once it has already been created, if it was necessary, the workspace must also be recreated
+-  It is not possible to replace an existing VNet in a workspace with another one, if it was necessary to create a new workspace, a new VNET must be created.
+- It is not possible to add SCC to the workspace once it has already been created, if it was necessary, the workspace must also be recreated
 - Potential challenges in managing multiple workspaces under Unity Catalog governance.
-
-## To cover
-Security and Compliance Challenges – Ensuring data security and compliance with regulations like GDPR and HIPAA is critical. Azure Databricks offers built-in encryption, identity management, and secure access controls to help organizations meet compliance requirements.
-
-- Audit - Azure storage explorer, data on who is processing data and when
-- RBAC with ADLS Gen 2
-https://www.databricks.com/blog/2020/05/04/azure-databricks-security-best-practices.html
-
