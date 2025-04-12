@@ -24,8 +24,7 @@ Diagram 1 - Databricks architecture
 
 Deploy your Azure Databricks workspace in private subnets without any inbound access to your network. Clusters will utilize a secure connectivity mechanism to communicate with the Azure Databricks infrastructure, without requiring public IP addresses for the nodes
 
-- deployment in own virtual network (bring your own network)
-
+- Deployment in own virtual network (bring your own network)
 - Implement Azure Private Link – Ensures all traffic remains within Microsoft’s secure network backbone.
 - Implementing network isolation is crucial to prevent unauthorized access.
 
@@ -103,10 +102,14 @@ Key considerations:
 - Terraform backend state file should be managed remotely, using Azure blob storage (for local use it can be configured with a backend.tf file as in example)
 - Azure DevOps deployment pipeline shall use a custom deployment Service Principal which is assigned  permissions required to deploy Azure services to Azure subscription, following least privilege principle,
 - Azure DevOps pipeline shall be a multi-stage one, containing a manual verification step before the deployment to production environments to ensure applied changes are not going to affect system availability and are compliant (review process in place),
+- Resources deployed with Terraform should have tags clearly reflecting ownership and environment level,
 
 Exemplary ADO pipeline code enclosed in the repository.
-
+Exemplary Terraform code included in the repository. 
+Tested with terraform 1.5.7, azurerm v3.117.1
 ## Logging
+Azure Databricks Diagnostic Logs capture privileged activities, file access, workspace modifications, cluster resizing, and file-sharing activities for security auditing. Logs enable monitoring of workspace access and user actions to ensure transparency in platform activity.
+
 Azure Databricks platform activity covering who’s, what, when actions shall be implemented by enablingAzure Databricks Diagnostic Logs.
 
 This solution allows to:
@@ -115,7 +118,9 @@ This solution allows to:
 
 
 ## Threat detection
-Azure Databricks logs shall be monitored for file integrity, any unusual user activity and changes around permissions.
+Azure Databricks logs shall be monitored for file integrity, any unusual user activity and changes around permissions. Threat detection involves monitoring Azure Databricks logs for unusual user activity, file integrity issues, and permission changes. Audit logs are streamed to Azure Sentinel for SIEM integration, and egress traffic is inspected using Azure Firewall or Network Virtual Appliances.
+
+
 
 Exemplary use cases to monitor:
 - Unusual user activity:
