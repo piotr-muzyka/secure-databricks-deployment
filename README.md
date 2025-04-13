@@ -31,6 +31,11 @@ Key considerations:
 ## Access
 Access management shall leverage Microsoft Entra ID which allows to setup single sign-on and credential passthrough. This approach eliminates the need to use service principals for access. On top of that use of Unity Catalog helps to centralize governance across workspaces. It also allows fine-grained access controls, data lineage tracking. In case necessary it also supports multi-cloud scenarios. Workspaces, compute resources, and data are not allowed for public access.
 
+With Unity caatalog a role-based access control model shall be implemented across Production environments, granting access depending on organization structure and job functions:
+-  Data Engineering Teams which work on design, implementation and maintenance of data pipelines shall be assigned to data_engineers group which has following privileges over data_engineering_catalog: CREATE SCHEMA, CREATE TABLE, MODIFY at the catalog level. Senior/Principal members of the team can be granted additionally MANAGE privileges to manage schema-level security.
+- Data Science Teams which develop machine learning models shall be assigned to data_scientists group and granted CREATE SCHEMA, CREATE MODEL privileges over data_science_catalog. To protect data integrity MODIFY privilege shall be omitted. 
+- Compliance Teams which collaborate with external auditors to reach organisation compliance (e.g. PCI-DSS, HIPAA etc.)  establish shall be assigned to compliance_auditors group with custom AUDIT privileges that allow read-only access to data lineage, query history without modifying data. 
+
 Key design considerations:
 - Microsoft Entra ID for credential passthrough,
 - Setup of SSO with Microsoft Entra ID and Conditional Access policies for enhanced security.
