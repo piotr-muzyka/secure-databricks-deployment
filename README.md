@@ -91,8 +91,6 @@ Key considerations:
 - Resources deployed with Terraform should have tags clearly reflecting ownership and environment level,
 
 Exemplary ([ADO pipeline code](https://github.com/piotr-muzyka/secure-databricks-deployment/blob/develop/azure-pipelines.yaml)) enclosed in the repository.
-Exemplary Terraform code included in the repository. 
-Tested with terraform 1.5.7, azurerm v3.117.1
 
 ## Threat detection & response
 For security auditing Azure Databricks Logs shall be used. They capture privileged activities, file access, workspace modifications, cluster resizing, and file-sharing activities enabling monitoring of workspace access and user actions. In terms of Threat detection it is vital to focus on file integrity, unusual user activity and changes around permissions. 
@@ -119,3 +117,4 @@ Suggested response for the use cases mentioned above:
 -  It is not possible to replace an existing VNet in a workspace with another one, if it was necessary to create a new workspace, a new VNET must be created.
 - It is not possible to add SCC to the workspace once it has already been created, if it was necessary, the workspace must also be recreated
 - Potential challenges in managing multiple workspaces under Unity Catalog governance.
+- Partial Terraform code implementation included in the repository. Tested with terraform 1.5.7, azurerm v3.117.1. Unfinished due to cloud environment access and time limitations. 
